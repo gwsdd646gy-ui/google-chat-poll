@@ -195,6 +195,9 @@ export default class ActionHandler extends BaseHandler implements PollAction {
     const state = this.getEventPollState();
     const formValues = this.event.common?.formInputs;
     const optionValue = formValues?.['value']?.stringInputs?.value?.[0]?.trim() ?? '';
+    if (!optionValue) {
+      return createStatusActionResponse('Option cannot be empty.', 'INVALID_ARGUMENT');
+    }
     addOptionToState(optionValue, state, userName);
 
     const cardMessage = new PollCard(state, this.getUserTimezone()).createMessage();
@@ -230,6 +233,11 @@ export default class ActionHandler extends BaseHandler implements PollAction {
 
   async closePoll(): Promise<chatV1.Schema$Message> {
     const state = this.getEventPollState();
+
+    if (state.type !== ClosableType.CLOSEABLE_BY_ANYONE && state.author?.name !== this.event.user?.name) {
+      return createStatusActionResponse('This poll can not be closed by you', 'PERMISSION_DENIED');
+    }
+
     state.closedTime = Date.now();
     state.closedBy = this.event.user?.displayName ?? '';
     const cardMessage = new PollCard(state, this.getUserTimezone()).createMessage();
@@ -238,10 +246,6 @@ export default class ActionHandler extends BaseHandler implements PollAction {
       requestBody: cardMessage,
       updateMask: 'cardsV2',
     };
-
-    if (state.type !== ClosableType.CLOSEABLE_BY_ANYONE && state.author?.name !== this.event.user?.name) {
-      return createStatusActionResponse('This poll can not be closed by you', 'PERMISSION_DENIED');
-    }
 
     const apiResponse = await callMessageApi('update', request);
     if (apiResponse.status === 200) {
@@ -283,12 +287,17 @@ export default class ActionHandler extends BaseHandler implements PollAction {
       const dialog = new ScheduleClosePollFormCard(config, this.getUserTimezone()).create();
       return createDialogActionResponse(dialog);
     }
+
+    const state = this.getEventPollState();
+    if (state.type !== ClosableType.CLOSEABLE_BY_ANYONE && state.author?.name !== this.event.user?.name) {
+      return createStatusActionResponse('This poll can not be closed by you', 'PERMISSION_DENIED');
+    }
+
     config.closedTime = utcClosedTime;
     const messageId = this.event.message!.name!;
     config.autoClose = true;
     await createAutoCloseTask(config, messageId);
 
-    const state = this.getEventPollState();
     state.closedTime = utcClosedTime;
     const cardMessage = new PollCard(state, this.getUserTimezone()).createMessage();
 

@@ -4,6 +4,10 @@ import ClosePollFormCard from './ClosePollFormCard';
 import {createButton} from '../helpers/cards';
 
 export default class ScheduleClosePollFormCard extends ClosePollFormCard {
+  private getState(): Record<string, unknown> {
+    return this.state as Record<string, unknown>;
+  }
+
   create(): chatV1.Schema$GoogleAppsCardV1Card {
     this.buildHeader();
     if (this.state.closedTime) {
@@ -64,7 +68,7 @@ export default class ScheduleClosePollFormCard extends ClosePollFormCard {
             'controlType': 'SWITCH',
             'name': 'auto_mention',
             'value': '1',
-            'selected': true,
+            'selected': this.getState()['autoMention'] as boolean ?? true,
           },
         },
       });
